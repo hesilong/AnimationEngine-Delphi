@@ -1,0 +1,14 @@
+unit uDDSLogic;
+
+interface
+uses
+  uPublic;
+
+  Type
+    TDDSLogic = class(TLogicWithStar)
+
+    end;
+
+implementation
+
+end.

@@ -1,0 +1,12 @@
+config.txt`z1`a1 a2 a3 a4`a3`2duox1.wav`
+
+z1`a1 a2 a3 a4`a3`2duox1.wav`
+z2`a5 a6 a7 a8`a8`2duox2.wav`
+z3`b1 b2 b3 b4`b3`2duox3.wav`
+z4`b1 b2 b3 b4`b2`2duox4.wav`
+z5`a9 a10 a11 a12`a9`2duox5.wav`
+z6`a5 a6 a7 a8`a7`2duox6.wav`
+z7`a9 a10 a11 a12`a10`2duox7.wav`
+z8`a9 a10 a11 a12`a12`2duox8.wav`
+z9`a5 a6 a7 a8`a5`2duox9.wav`
+z10`a9 a10 a11 a12`a11`2duox10.wav`

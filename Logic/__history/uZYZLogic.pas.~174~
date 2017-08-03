@@ -1,0 +1,476 @@
+unit uZYZLogic;
+
+interface
+ uses
+  System.Classes, System.UITypes,System.SysUtils, System.Types,System.Generics.Collections,
+  FMX.Dialogs,FMX.Types, uPublic,uEngine2DSprite,uEngine2DExtend;
+
+  const
+    SQUIRREL_INTERVAL = 5000;
+    BOARDER_BLINK_INTERVAL = 500;
+    START_APPLE_RANGE = 4;  // 在1-4随机选取一个appleSprite为第一个
+    TOTAL_APPLE_COUNT = 8;  //appleSprite总个数
+    LEAST_APPLE_COUNT = 4;  //每道题至少显示的apple数
+    MAX_APPLE_COUNT = 7;
+    SHOW_STAR_COUNT = 7;  //星星数量
+    FULL_STAR = 'x-1.png';
+    HALF_STAR = 'x-2.png';
+    EMPTY_STAR = 'x-3.png';
+
+   Type
+     TZYZLogic = class(TLogicWithStar)
+      private
+         FCurDragImage : TEngine2DImage;
+         FCopyDragSprite : TEngine2DSprite;
+         FEnter : boolean;
+         FCorrectList : TStringList;
+         FCurConfigName : String;   //当前读取的配置文件名
+         FCurCorrectCount : Integer; //当前答对题数
+         FCurScore : Integer;   //当前分数
+
+         FSquirrelTimer : TTimer;
+         FShowBoarderTimer : TTimer;
+
+         procedure ArrangeAppleTree;
+         procedure PlayAnimation(AIsRight:boolean);
+         procedure ReadScoreFromLocal;
+          procedure UpdateScore(AIsAdd : boolean = true);
+
+         procedure OnSquirrelTimer(Sender : TObject);
+         procedure OnBoarderBlink(Sender : TObject);
+      protected
+         procedure ClearAll;
+         procedure CopySpriteFromSrc(AImage : TEngine2DImage);
+         procedure CopySrcFromSprite(ASprite : TEngine2DSprite);
+         procedure UpdateStarStatus;
+         procedure OnNextTimer(Sender : TObject);override;
+      public
+         Destructor Destroy;override;
+         procedure Init;override;
+         procedure NextSight;override;
+
+         procedure MouseDownHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);override;
+         procedure MouseMoveHandler(Sender: TObject; Shift: TShiftState; X, Y: Single);override;
+         procedure MouseUpHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);override;
+     end;
+
+implementation
+uses
+  uEngineUtils,uEngineConfig,uEngine2DInvade,Math;
+
+{ TZYZLogic }
+
+procedure TZYZLogic.ArrangeAppleTree;
+var
+  LStr,LTitle,LContent,LAnswer : String;
+  LList : TStringList;
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+  LStartIndex,LShowCount,LMaxIndex,LAnswerIndex : Integer;
+  i: Integer;
+  LFileName : String;
+begin
+  LStr := FIndexList.Strings[FCurIndex];
+  FCurConfigName := GetHeadString(LStr,'`');
+  LTitle := GetHeadString(LStr,'`');
+  LContent := GetHeadString(LStr,'`');
+  LAnswer := GetHeadString(LStr,'`');
+  LSprite := FEngineModel.SpriteList.Has('boardSprite');
+  LImage := TEngine2DImage(LSprite.Children.Has('TipImage'));
+  LImage.ImageConfig.SetNormalImg(LTitle+'.png');
+  try
+    LList := SplitString(LContent,' ');
+    LStartIndex := Random(START_APPLE_RANGE)+1;
+    LShowCount := LEAST_APPLE_COUNT + Random(TOTAL_APPLE_COUNT - LEAST_APPLE_COUNT);
+    LMaxIndex := LStartIndex + LShowCount - 1 ;
+    if LMaxIndex > TOTAL_APPLE_COUNT  then
+      LMaxIndex := TOTAL_APPLE_COUNT;
+    LAnswerIndex := LStartIndex + Random(LMaxIndex - LStartIndex + 1);
+    LSprite := FEngineModel.SpriteList.Has('treeSprite');
+    for i := LStartIndex to LMaxIndex do
+      begin
+        if i = LAnswerIndex then
+           begin
+             LFileName := LAnswer + '.png';
+             FCorrectList.Add('cp_apple'+LAnswerIndex.ToString()+'Image');
+           end else
+           begin
+             LFileName := LList.Strings[Random(LList.Count)];
+             if LFileName.Equals(LAnswer) then
+               begin
+                 FCorrectList.Add('cp_apple'+i.ToString()+'Image');
+               end;
+             LFileName := LFileName + '.png';
+           end;
+         LImage := TEngine2DImage(LSprite.Children.Has('apple'+i.ToString()+'Image'));
+         LImage.ImageConfig.SetNormalImg(LFileName);
+         LImage.Visible := true;
+      end;
+  finally
+    LList.DisposeOf;
+  end;
+end;
+
+procedure TZYZLogic.ClearAll;
+var
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+  i: Integer;
+begin
+  FCorrectList.Clear;
+  FCurDragImage := nil;
+  FEnter := false;
+  FSquirrelTimer.Enabled := true;
+  FCurCorrectCount := 0;
+  LSprite := FEngineModel.SpriteList.Has('treeSprite');
+  for i := 1 to TOTAL_APPLE_COUNT do
+   begin
+     LImage := TEngine2DImage(LSprite.Children.Has('apple'+i.ToString()+'Image'));
+     if LImage <> nil then
+       LImage.Visible := false;
+   end;
+end;
+
+procedure TZYZLogic.CopySpriteFromSrc(AImage: TEngine2DImage);
+var
+  LParentSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+  LName : String;
+begin
+  LParentSprite := FEngineModel.SpriteList.Has('treeSprite');
+  LName := 'cp_'+AImage.SpriteName;
+  if FEngineModel.SpriteList.Contains(LName) then
+    begin
+      FCopyDragSprite := FEngineModel.SpriteList.Has(LName);
+      FCopyDragSprite.Visible := true;
+    end else
+    begin
+      FCopyDragSprite := TEngine2DSprite.Create(LParentSprite.Image);
+      FCopyDragSprite.ResManager := LParentSprite.ResManager;
+      FCopyDragSprite.SetParentSize(LParentSprite.ParentPosition.InitWidth,LParentSprite.ParentPosition.InitHeight);
+      FCopyDragSprite.Name := LName;
+      FCopyDragSprite.InitWidth  := FCurDragImage.InitWidth;
+      FCopyDragSprite.InitHeight := FCurDragImage.InitHeight;
+      FCopyDragSprite.InitX := AImage.InitX + LParentSprite.InitX;
+      FCopyDragSprite.InitY := AImage.InitY + LParentSprite.InitY;
+      FCopyDragSprite.HitTest  := true;
+      FCopyDragSprite.OnMouseMove := MouseMoveHandler;
+      FCopyDragSPrite.OnMouseUp := MouseUpHandler;
+      FCopyDragSprite.Visible := true;
+      FCopyDragSprite.Align := GetAlignNew('7');
+      LImage := TEngine2DImage.Create(FCopyDragSprite.BackDrawCanvas);
+      LImage.SpriteName := 'cp_'+AImage.SpriteName;
+      LImage.ImageStatus := AImage.ImageStatus;
+      LImage.Align := GetAlignNew('9');
+      LImage.Visible := true;
+      LImage.ImageConfig := TImageConfig.Create(nil, FCopyDragSprite.ResManager);
+      LImage.ImageConfig.NormalBitmap.Assign(AImage.ImageConfig.NormalBitmap);
+      FCopyDragSprite.Children.Add(LImage.SpriteName, LImage);
+      FEngineModel.SpriteList.Add(FCopyDragSprite.Name,FCopyDragSprite);
+    end;
+    FCopyDragSprite.Resize(LParentSprite.ParentPosition.Width, LParentSprite.ParentPosition.Height);
+    FCopyDragSprite.X := AImage.X + LParentSprite.X;
+    FCopyDragSprite.Y := AImage.Y + LParentSprite.Y;
+    FCopyDragSprite.InitPosition := PointF(FCopyDragSprite.X, FCopyDragSprite.Y);
+    FCopyDragSprite.MouseDownPoint := PointF(LParentSprite.X + FCurDragImage.MouseDownPoint.X , LParentSprite.Y + FCurDragImage.MouseDownPoint.Y);
+    FCopyDragSprite.MouseIsDown := true;
+    FEngineModel.BringToFront(FCopyDragSprite);
+end;
+
+procedure TZYZLogic.CopySrcFromSprite(ASprite: TEngine2DSprite);
+var
+  LParentSprite : TEngine2DSprite;
+  LSrcImage, LImage : TEngine2DImage;
+  LX,LY,LN : Single;
+begin
+  LParentSprite := FEngineModel.SpriteList.Has('boarderSprite');
+  LX := LParentSprite.Width/LParentSprite.InitWidth;
+  LY := LParentSprite.Height/LParentSprite.InitHeight;
+//  LN := Math.min(LX,LY);
+  LSrcImage := TEngine2DImage(ASprite.Children.Items[0]);
+  LImage := TEngine2DImage.Create(LParentSprite.BackDrawCanvas);
+  LImage.SpriteName := 'dul_'+LSrcImage.SpriteName;
+  LImage.ImageStatus := LSrcImage.ImageStatus;
+  LImage.Align := GetAlignNew('7');
+  LImage.Visible := true;
+  LImage.ImageConfig := TImageConfig.Create(nil, LSrcImage.ResManager);
+  LImage.ImageConfig.NormalBitmap.Assign(LSrcImage.ImageConfig.NormalBitmap);
+  LImage.InitWidth := FCurDragImage.InitWidth;
+  LImage.InitHeight := FCurDragImage.InitHeight;
+  LImage.X := ASprite.X - LParentSprite.X;
+  LImage.Y := ASprite.Y - LParentSprite.Y;
+  LImage.Width := LSrcImage.Width;
+  LImage.Height := LSrcImage.Height;
+  LImage.InitX := (LImage.X + LImage.Width/2)/LX - LImage.InitWidth/2; //trunc((LImage.X)/LX);
+  LImage.InitY := (LImage.Y + LImage.Height/2)/LY - LImage.InitHeight/2; //trunc((LImage.Y)/LY);
+
+  LParentSprite.Children.Add(LImage.SpriteName,LImage);
+end;
+
+destructor TZYZLogic.Destroy;
+begin
+  if Assigned(FSquirrelTimer) then
+    FSquirrelTimer.DisposeOf;
+  if Assigned(FCorrectList) then
+    FCorrectList.DisposeOf;
+  if Assigned(FShowBoarderTimer) then
+    FShowBoarderTimer.DisposeOf;
+  inherited;
+end;
+
+procedure TZYZLogic.Init;
+begin
+  if Not Assigned(FCorrectList) then
+    FCorrectList := TStringList.Create;
+
+  if not Assigned(FSquirrelTimer) then
+     begin
+       FSquirrelTimer := TTimer.Create(nil);
+       FSquirrelTimer.Interval := SQUIRREL_INTERVAL;
+       FSquirrelTimer.OnTimer := OnSquirrelTimer;
+       FSquirrelTimer.Enabled := false;
+     end;
+
+  if Not Assigned(FShowBoarderTimer) then
+    begin
+      FShowBoarderTimer := TTimer.Create(nil);
+      FShowBoarderTimer.Interval := BOARDER_BLINK_INTERVAL;
+      FShowBoarderTimer.OnTimer := OnBoarderBlink;
+      FShowBoarderTimer.Enabled := false;
+    end;
+
+  FFullStarName := FULL_STAR;
+  FHalfStarName := HALF_STAR;
+  FEmptyStarName := EMPTY_STAR;
+
+  ClearAll;
+  ReadScoreFromLocal;
+  ArrangeAppleTree;
+end;
+
+procedure TZYZLogic.MouseDownHandler(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Single);
+var
+  LParentSprite,LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  if Sender.ClassName.Equals('TEngine2DImage') then
+    begin
+      LSprite := FEngineModel.SpriteList.Has('treeSprite');
+      FCurDragImage := TEngine2DImage(Sender);
+      CopySpriteFromSrc(FCurDragImage);
+      FCurDragImage.Visible := false;
+      FShowBoarderTimer.Enabled := true;
+    end;
+end;
+
+procedure TZYZLogic.MouseMoveHandler(Sender: TObject; Shift: TShiftState; X,
+  Y: Single);
+var
+  LCon : TConvexPolygon;
+begin
+  if Sender.ClassName.Equals('TEngine2DSprite') then
+    begin
+      if FCopyDragSprite <> Sender then
+        exit;
+      if FCopyDragSprite.MouseIsDown then
+        begin
+          FCopyDragSprite.X := FCopyDragSprite.InitPosition.X + (X - FCopyDragSprite.MouseDownPoint.X);
+          FCopyDragSprite.Y := FCopyDragSprite.InitPosition.Y + (Y - FCopyDragSprite.MouseDownPoint.Y);
+        end;
+      LCon := FEngineModel.InvadeManager.GetInvadeObject(FCopyDragSprite.GetConvexPoints);
+      if LCon <> nil then
+        begin
+          FEnter := true;
+        end else
+        FEnter := false;
+    end;
+end;
+
+procedure TZYZLogic.MouseUpHandler(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Single);
+var
+  LProc : TProc;
+  LRight : boolean;
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  LRight := false;
+  FShowBoarderTimer.Enabled := false;
+  LSprite := FEngineModel.SpriteList.Has('boarderSprite');
+  LImage := TEngine2DImage(LSprite.Children.Has('boarderImage'));
+  LImage.Opacity := 0.1;
+  if FEnter then
+    begin
+      FCopyDragSprite.MouseIsDown := false;
+      FCopyDragSprite.Visible := false;
+      FEnter := false;
+      CopySrcFromSprite(FCopyDragSprite);
+      if FCorrectList.IndexOf(FCopyDragSprite.Name)>=0 then
+        LRight := true;
+    end else
+    begin
+      LProc := procedure()
+      begin
+        FCopyDragSprite.MouseIsDown := false;
+        FCurDragImage.Visible := true;
+        FCopyDragSprite.Visible := false;
+      end;
+      FCopyDragSprite.CreateMoveAnimation(PointF(X,Y),FCopyDragSprite.InitPosition, LProc);
+    end;
+  PlayAnimation(LRight);
+end;
+
+procedure TZYZLogic.NextSight;
+var
+  LStr : String;
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  inc(FCurIndex);
+  if FCurIndex >= TotalCount then
+    begin
+      LSprite :=FEngineModel.SpriteList.Has('GraySprite');
+      LSprite.Visible := true;
+      LSprite := FEngineModel.SpriteList.Has('ResultSprite');
+      LSprite.Visible := true;
+      FEngineModel.BringToFront(LSprite);
+    end else
+    begin
+      ClearAll;
+      LStr := FIndexList.Strings[FCurIndex];
+      FCurConfigName := GetHeadString(LStr,'`');
+      FEngineModel.LoadNextConfig(FCurConfigName);
+      UpdateScore(false);    //加载新场景时 需重绘一下分数
+      ArrangeAppleTree;
+    end;
+
+  inherited;
+end;
+
+procedure TZYZLogic.OnBoarderBlink(Sender: TObject);
+var
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  LSprite := FEngineModel.SpriteList.Has('boarderSprite');
+  LImage := TEngine2DImage(LSprite.Children.Has('boarderImage'));
+  if LImage.Opacity = 1 then
+    LImage.Opacity := 0.1 else
+    LImage.Opacity := 1;
+end;
+
+procedure TZYZLogic.OnNextTimer(Sender: TObject);
+begin
+  FNextTimer.Enabled := false;
+  NextSight;
+end;
+
+procedure TZYZLogic.OnSquirrelTimer(Sender: TObject);
+var
+  I,J : Integer;
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+  LParentWidth,LSquirrelRatio : Single;
+  LFinish : TProc;
+begin
+  I := Random(5);
+  LSprite := FEngineModel.SpriteList.Has('squirrelSprite');
+  LImage := TEngine2DImage(LSprite.Children.Items[0]);
+  if I < 2 then
+   begin
+     LImage.Opacity  := 0.01;
+   end else
+   begin
+     if Not (LImage.Opacity =1)  then
+       begin
+         LImage.Opacity := 1;
+         LParentWidth := LSprite.ParentPosition.Width;
+         LSquirrelRatio := (LParentWidth * 0.2 + Random(trunc(LParentWidth * 0.4)))/LParentWidth;
+         LSprite.X := LParentWidth * LSquirrelRatio;
+       end;
+     FSquirrelTimer.Enabled := false;
+     J := Random(2);
+     LFinish := procedure()
+     begin
+      FSquirrelTimer.Enabled := true;
+     end;
+
+     if J = 0 then
+      LImage.ImageConfig.SwitchNormalControlerByName('squirrel2',LFinish) else
+      LImage.ImageConfig.SwitchNormalControlerByName('squirrel1',LFinish);
+   end;
+
+end;
+
+procedure TZYZLogic.PlayAnimation(AIsRight: boolean);
+var
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+  LFinish : TProc;
+begin
+  LSprite := FEngineModel.SpriteList.Has('animalSprite');
+  LImage := LSprite.Children.Has('animalImage') as TEngine2DImage;
+  LFinish := procedure()
+  begin
+    LImage.ImageConfig.SwitchNormalControlerByName('Blink',nil);
+  end;
+  if AIsRight then
+    begin
+      UpdateScore;
+      PlayStarAnimationWhenDone(SHOW_STAR_COUNT);
+
+      LImage.ImageConfig.SwitchNormalControlerByName('right',LFinish);
+      inc(FCurCorrectCount);
+      if FCurCorrectCount >= FCorrectList.Count then
+        begin
+//          inc(FCurIndex);
+           FNextTimer.Enabled := true;
+        end;
+    end else
+    begin
+      LImage.ImageConfig.SwitchNormalControlerByName('wrong',LFinish);
+      dec(FCurIndex);
+      FNextTimer.Enabled := true;
+    end;
+
+
+
+end;
+
+procedure TZYZLogic.ReadScoreFromLocal;
+begin
+  FCurScore := 0;
+  FStarCount := 3;
+  UpdateStarStatus;
+end;
+
+procedure TZYZLogic.UpdateScore(AIsAdd: boolean);
+var
+  LSprite : TEngine2DSprite;
+  LText : TEngine2DText;
+begin
+  if AIsAdd then
+    Inc(FCurScore);
+  LSprite := FEngineModel.SpriteList.Has('scoreSprite');
+  LText := TEngine2DText(LSprite.Children.Has('score'));
+  LText.Text := FCurScore.ToString();
+end;
+
+procedure TZYZLogic.UpdateStarStatus;
+var
+  i: Integer;
+begin
+  if Not Assigned(FEngineModel) then
+    raise Exception.Create('FEngineModel is Not Assigned,FEngineModel Should be Used After Engine Create');
+  for i := 1 to SHOW_STAR_COUNT do
+    begin
+      UpdateASingleStarStatus(i);
+    end;
+end;
+
+Initialization
+
+  RegisterLogicUnit(TZYZLogic,'ZYZLogic');
+
+end.

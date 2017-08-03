@@ -1,0 +1,31 @@
+unit uDDSLogic;
+
+interface
+uses
+  System.Classes, System.UITypes,System.SysUtils, System.Types,System.Generics.Collections,
+  FMX.Dialogs,FMX.Types, uPublic,uEngine2DSprite,uEngine2DExtend;
+
+  Type
+    TDDSLogic = class(TLogicWithStar)
+      public
+        procedure Init;override;
+
+        procedure MouseDownHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);override;
+         procedure MouseMoveHandler(Sender: TObject; Shift: TShiftState; X, Y: Single);override;
+         procedure MouseUpHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);override;
+    end;
+
+implementation
+
+{ TDDSLogic }
+
+procedure TDDSLogic.Init;
+begin
+  //todo
+end;
+
+Initialization
+
+  RegisterLogicUnit(TDDSLogic,'DDSLogic');
+
+end.

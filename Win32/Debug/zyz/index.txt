@@ -1,0 +1,14 @@
+config.txt`z1`t1 t2 t3 t4 t5 t6 t7 t8`t2`1.wav`z-1.wav`
+config1.txt`z2`t1 t2 t3 t4 t5 t6 t7 t8`t3`1.wav`z-2.wav`
+config1.txt`z3`t9 t10 t11 t12 t13`t9`1.wav`z-3.wav`
+config1.txt`z4`t1 t2 t3 t4 t5 t6 t7 t8`t1`1.wav`z-4.wav`
+config1.txt`z5`t1 t2 t3 t4 t5 t6 t7 t8`t4`1.wav`z-5.wav`
+config1.txt`z6`a1 a2 a3 a4`a1`1.wav`z-6.wav`
+config1.txt`z7`a5 a6 a7 a8 a9 a10 a11 a12 a13`a5`1.wav`z-7.wav`
+config1.txt`z8`a5 a6 a7 a8 a9 a10 a11 a12 a13`a6`1.wav`z-8.wav`
+config1.txt`z9`a5 a6 a7 a8 a9 a10 a11 a12 a13`a8`1.wav`z-9.wav`
+config1.txt`z10`a5 a6 a7 a8 a9 a10 a11 a12 a13`a5`1.wav`z-10.wav`
+config1.txt`z11`a5 a6 a7 a8 a9 a10 a11 a12 a13`a7`1.wav`z-11.wav`
+config1.txt`z12`a1 a14 a15 a16`a1`1.wav`z-6.wav`
+config1.txt`z13`a5 a6 a7 a8`a7`1.wav`z-11.wav`
+config2.txt`z14`a5 a6 a7 a8`a8`1.wav`z-14.wav`

@@ -1,0 +1,258 @@
+unit uPublic;
+
+interface
+uses
+  System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,System.Generics.Collections,
+  FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Layouts,uEngine2DModel,uEngine2DSprite;
+
+const
+  SWITCH_INTERVAL = 2000;
+
+Type
+  TBaseLogic = class
+    protected
+      FLogicName : String;
+      [weak]FEngineModel : TEngine2DModel;
+      FIndexList : TStringList;
+      FTotalCount : Integer;
+      FCurIndex  : Integer;
+      FNextTimer : TTimer;
+
+
+      function GetTotalCount:Integer;
+
+      procedure SetMouseCursor(value : TCursor);
+      procedure OnNextTimer(Sender :TObject);virtual;
+
+    public
+      Constructor Create;
+      Destructor Destroy;override;
+      procedure Init;virtual;abstract;
+      procedure MouseDownHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);virtual;
+      procedure MouseMoveHandler(Sender: TObject; Shift: TShiftState; X, Y: Single);virtual;
+      procedure MouseUpHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);virtual;
+      procedure MouseEnterHandler(Sender : TObject); virtual;
+      procedure MouseLeaveHandler(Sender : TObject); virtual;
+      procedure NextSight;virtual;
+
+      property LogicName : String read FLogicName write FLogicName;
+      property EngineModel : TEngine2DModel read FEngineModel write FEngineModel;
+      property IndexList : TStringList read FIndexList write FIndexList;
+      property TotalCount : Integer read GetTotalCount;
+      property CurIndex : Integer read FCurIndex write FCurIndex;
+      property MouseCursor : TCursor write SetMouseCursor;   //设置鼠标样式
+  end;
+
+  TLogicWithStar = class(TBaseLogic)
+    private const
+      FULL_STAR = 'x-1.png';
+      HALF_STAR = 'x-3.png';
+      EMPTY_STAR = 'x-2.png';
+    protected
+     FStarCount : Integer;  // 星星数量
+
+
+
+     function UpdateASingleStarStatus(AStarIndex : Integer; AFullName:String = FULL_STAR;
+                                      AHalfName:String = HALF_STAR; AEmptyName:String = EMPTY_STAR): TEngine2DSprite;
+
+     procedure PlayStarAnimationWhenDone;
+     procedure UpdateStarStatus;virtual;abstract;
+  end;
+
+  TLogicClass = class of TBaseLogic;
+
+  TLogicRecord = record
+
+    LogicClass : TLogicClass;
+    LogicInstance : TBaseLogic;
+    AliasName : String;
+  end;
+
+  var
+    G_LogicManager : array of TLogicRecord;
+    G_CurrentLogic : TBaseLogic;    //当前使用的逻辑单元
+
+  procedure RegisterLogicUnit(const ALogicClass:TLogicClass;const AAliasName:String);
+  procedure UnRegisterLogicUnit;
+  function GetLogicUnitByAliasName(AAliasName:String):TBaseLogic;
+
+
+
+implementation
+uses
+  AniMain,uEngine,uEngine2DExtend;
+
+procedure RegisterLogicUnit(const ALogicClass:TLogicClass;const AAliasName:String);
+begin
+  SetLength(G_LogicManager,Length(G_LogicManager)+1);
+  G_LogicManager[High(G_LogicManager)].LogicClass := ALogicClass;
+  G_LogicManager[High(G_LogicManager)].LogicInstance := nil;
+  G_LogicManager[High(G_LogicManager)].AliasName := AAliasName;
+end;
+
+procedure UnRegisterLogicUnit;
+var
+  i: Integer;
+begin
+  for i := 0 to High(G_LogicManager) do
+    begin
+      if G_LogicManager[i].LogicInstance <> nil then
+        G_LogicManager[i].LogicInstance.DisposeOf;
+    end;
+  SetLength(G_LogicManager,0);
+  G_LogicManager := nil;
+end;
+
+function GetLogicUnitByAliasName(AAliasName:String):TBaseLogic;
+var
+  i: Integer;
+  LPos : Integer;
+  LLogic : TBaseLogic;
+begin
+  result := nil;
+  if Length(G_LogicManager)= 0 then
+    exit;
+  try
+    for i := 0 to Length(G_LogicManager)-1 do
+      begin
+        if G_LogicManager[i].AliasName.Equals(AAliasName) then
+          begin
+            LPos := i;
+            break;
+          end;
+      end;
+
+    LLogic := G_LogicManager[LPos].LogicInstance;
+    if LLogic = nil then
+     begin
+       LLogic := G_LogicManager[LPos].LogicClass.Create;
+       LLogic.LogicName := AAliasName;
+       G_LogicManager[LPos].LogicInstance := LLogic;
+     end;
+  except on e : Exception do
+     Showmessage('Error @GetLogicUnitByAliasName: '+e.Message);
+  end;
+  result := LLogic;
+end;
+
+{ TBaseLogic }
+
+constructor TBaseLogic.Create;
+begin
+  FIndexList := TStringList.Create;
+  FCurIndex := 0;
+
+  if Not Assigned(FNextTimer) then
+    begin
+      FNextTimer := TTimer.Create(nil);
+      FNextTimer.Interval := SWITCH_INTERVAL;
+      FNextTimer.OnTimer := OnNextTimer;
+      FNextTimer.Enabled := false;
+    end;
+end;
+
+destructor TBaseLogic.Destroy;
+begin
+  FIndexList.DisposeOf;
+  if Assigned(FNextTimer) then
+    FNextTimer.DisposeOf;
+  inherited;
+end;
+
+function TBaseLogic.GetTotalCount: Integer;
+begin
+  result := FIndexList.Count;
+end;
+
+procedure TBaseLogic.MouseDownHandler(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Single);
+begin
+  //todo
+end;
+
+procedure TBaseLogic.MouseEnterHandler(Sender: TObject);
+begin
+  //todo
+  Self.MouseCursor  := crHandPoint;
+end;
+
+procedure TBaseLogic.MouseLeaveHandler(Sender: TObject);
+begin
+  //todo
+  Self.MouseCursor :=  crDefault;
+end;
+
+procedure TBaseLogic.MouseMoveHandler(Sender: TObject; Shift: TShiftState; X,
+  Y: Single);
+begin
+  //todo
+end;
+
+procedure TBaseLogic.MouseUpHandler(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Single);
+begin
+  //todo
+end;
+
+procedure TBaseLogic.NextSight;
+begin
+  Form1.FormResize(nil);
+end;
+
+procedure TBaseLogic.OnNextTimer(Sender: TObject);
+begin
+  //todo
+end;
+
+procedure TBaseLogic.SetMouseCursor(value: TCursor);
+begin
+  G_Engine.Cursor := value;
+end;
+
+
+
+{ TLogicWithStar }
+
+function TLogicWithStar.UpdateASingleStarStatus(AStarIndex: Integer; AFullName,
+  AHalfName, AEmptyName: String): TEngine2DSprite;
+var
+  LSpriteName,LImageName :String;
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+  LModeV,LDivV : Integer;
+begin
+  LSpriteName := 'StarSprite'+AStarIndex.ToString();
+  LSprite := FEngineModel.StarSpriteList.Has(LSpriteName);
+  if LSprite <> nil then
+    begin
+       LImageName := 'StarImage'+AStarIndex.ToString();
+       LImage := TEngine2DImage(LSprite.Children.Has(LImageName));
+       LDivV := (FStarCount div 2);
+       if AStarIndex <= LDivV then
+         LImage.ImageConfig.SetNormalImg(AFullName) else
+         begin
+           LModeV := FStarCount mod 2;
+           if AStarIndex = LDivV+1 then
+             begin
+               if LModeV = 1 then
+                 LImage.ImageConfig.SetNormalImg(AHalfName) else
+               if LModeV = 0 then
+                 LImage.ImageConfig.SetNormalImg(AEmptyName);
+             end else
+             begin
+               LImage.ImageConfig.SetNormalImg(AEmptyName);
+             end;
+
+         end;
+    end;
+  result := LSprite;
+end;
+
+Initialization
+
+
+Finalization
+  UnRegisterLogicUnit;
+
+end.

@@ -1,0 +1,22 @@
+unit uDDSLogic;
+
+interface
+uses
+  uPublic;
+
+  Type
+    TDDSLogic = class(TLogicWithStar)
+      public
+        procedure Init;override;
+    end;
+
+implementation
+
+{ TDDSLogic }
+
+procedure TDDSLogic.Init;
+begin
+  //todo
+end;
+
+end.

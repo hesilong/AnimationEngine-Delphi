@@ -1,0 +1,555 @@
+unit uBasketBallLogic;
+
+interface
+uses
+  System.Classes, System.UITypes, System.SysUtils, System.Types,
+  FMX.Types,FMX.Graphics,FMX.Dialogs,
+  uPublic, uEngine2DSprite,uEngine2DExtend;
+
+  const
+    MOVE_TO_ANIMAL_INTERVAL = 30; // 移动到小鹿Timer的动画间隔
+    PREPARE_TO_THROW_INTERVAL = 200; //小鹿开始扔球Timer的动画间隔
+    MOVE_BALL_INTERVAL  = 40;   //移动球Timer的动画间隔
+    BALL_IN_RIM_INTERVAL = 100;   //球进框Timer的动画间隔
+    MOVE_TO_ANIMAL_STEP_COUNT = 10;
+    MOVE_TO_ANIMAL_RATIO = 0.95;
+    SHOW_STAR_COUNT = 7;  //星星数量
+    FULL_STAR = 'xx-1.png';
+    HALF_STAR = 'xx-2.png';
+    EMPTY_STAR = 'xx-3.png';
+
+  Type
+    TBasketBallLogic = class(TLogicWithStar)
+      private
+        FMoveToAnimalTimer : TTimer;
+        FPrepareToThrowTimer : TTimer;
+        FBallMoveTimer : TTimer;
+        FBallInRimTimer : TTimer;
+        FMoveCount  : Integer;  // used to count Move to animal
+        FAnimalCount : Integer;  // used to switch animal status bitmap
+        FMoveBallCount : Integer;  // used to update ball status
+        FBallInRimCount : Integer; // used to update ball in rim status
+        FCurMoveSprite : TEngine2DSprite;  //显示题目的球Sprite
+        FAnimalSprite : TEngine2DSprite;   //小鹿Sprite
+        FThrowBall : TEngine2DSprite;      // 扔出的球Sprite
+        FRim : TEngine2DSprite;            // 篮筐Sprite
+        FPaceX,FPaceY : Single;
+        FAnswerIsOk : boolean;
+        FCurConfigName : String;   //当前读取的配置文件名
+        FCurAnswer : String;
+        FCurScore : Integer;
+
+        procedure MoveBallToAnimal(ASprite : TEngine2DSprite);
+        procedure AnimalPrepareToThrow;
+        procedure ThrowBall;
+        procedure BallInRim;
+        procedure PlayAnimation(AIsRight:boolean);
+        procedure ClearAll;
+        procedure ArrangeBasketBall;
+        procedure ReadScoreFromLocal;
+        procedure UpdateScore(AIsAdd : boolean = true);
+        procedure UpdateStarStatus;
+
+        procedure OnMoveToAnimal(Sender : TObject);
+        procedure OnPrepareToThrow(Sender : TObject);
+        procedure OnBallMove(Sender : TObject);
+        procedure OnBallInRim(Sender : TObject);
+
+        procedure OnNextTimer(Sender :TObject); override;
+
+      public
+        Destructor Destroy;override;
+        procedure Init;override;
+        procedure NextSight;override;
+
+        procedure MouseEnterHandler(Sender : TObject);override;
+        procedure MouseLeaveHandler(Sender : TObject);override;
+        procedure MouseUpHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);override;
+
+    end;
+
+implementation
+uses
+  uEngineUtils;
+
+{ TBasketBallLogic }
+
+procedure TBasketBallLogic.AnimalPrepareToThrow;
+var
+  LAnimal : TEngine2DImage;
+begin
+  FAnimalCount := 0;
+  if Not Assigned(FPrepareToThrowTimer) then
+    begin
+      FPrepareToThrowTimer := TTimer.Create(nil);
+      FPrepareToThrowTimer.Interval := PREPARE_TO_THROW_INTERVAL;
+      FPrepareToThrowTimer.OnTimer := OnPrepareToThrow;
+      FPrepareToThrowTimer.Enabled  := false;
+    end;
+
+  LAnimal := TEngine2DImage(FAnimalSprite.Children.Has('animal'));
+  LAnimal.ImageConfig.SwitchNormalControlerByName('throw',nil);
+//  LAnimal.ImageIndex := 0;
+  FPrepareToThrowTimer.Enabled := true;
+end;
+
+procedure TBasketBallLogic.ArrangeBasketBall;
+var
+  LStr,LChoice,LTitle : String;
+  LTmpList : TStringList;
+  i: Integer;
+  LSpriteName,LFileName,LAnswer : String;
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+  LIndex : Integer;
+  LCorrectPos,LCorrectIndex : Integer;
+begin
+  try
+    LStr := FIndexList.Strings[FCurIndex];
+    FCurConfigName := GetHeadString(LStr,'`');
+    LTitle := GetHeadString(LStr,'`');
+    LChoice := GetHeadString(LStr,'`');
+    LAnswer := GetHeadString(LStr,'`');
+    LCorrectPos := Random(4)+1;
+    LSprite := FEngineModel.SpriteList.Has('titleSprite');
+    LImage := TEngine2DImage(LSprite.Children.Has('title'));
+    LImage.ImageConfig.SetNormalImg(LTitle+'.png');
+    try
+      LTmpList := SplitString(LChoice,' ');
+      LCorrectIndex := LTmpList.IndexOf(LAnswer);
+      LTmpList.Delete(LCorrectIndex);
+      for i := 1 to 4 do
+       begin
+         LSpriteName := 'Q'+i.ToString()+'Sprite';
+         LSprite := FEngineModel.SpriteList.Has(LSpriteName);
+         if LSprite <> nil then
+           begin
+             LImage :=  TEngine2DImage(LSprite.Children.Items[0]);
+
+             if LCorrectPos = i then
+               begin
+                 LFileName := LAnswer + '.png';
+                 FCurAnswer := LSpriteName;
+  //               LIndex := LCorrectIndex;
+               end else
+               begin
+                 LIndex := Random(LTmpList.Count);
+                 LFileName := LTmpList.Strings[LIndex]+'.png';
+                 LTmpList.Delete(LIndex);
+               end;
+
+             LImage.ImageConfig.SetNormalImg(LFileName);
+
+
+           end;
+       end;
+    finally
+      LTmpList.DisposeOf;
+    end;
+  except on e : Exception do
+    ShowMessage('Error @TBasketBallLogic.ArrangeBasketBall '+e.Message);
+  end;
+
+end;
+
+procedure TBasketBallLogic.BallInRim;
+begin
+  FEngineModel.BringToFront(FThrowBall);
+  FBallInRimCount := 0;
+  if Not Assigned(FBallInRimTimer) then
+    begin
+      FBallInRimTimer := TTimer.Create(nil);
+      FBallInRimTimer.Interval := BALL_IN_RIM_INTERVAL;
+      FBallInRimTimer.OnTimer := OnBallInRim;
+      FBallInRimTimer.Enabled := false;
+    end;
+
+  FBallInRimTimer.Enabled:= true;
+end;
+
+procedure TBasketBallLogic.ClearAll;
+var
+  LStr,S : String;
+begin
+  if Assigned(FMoveToAnimalTimer) then
+    FMoveToAnimalTimer.Enabled := false;
+  if Assigned(FPrepareToThrowTimer) then
+    FPrepareToThrowTimer.Enabled := false;
+  if Assigned(FBallMoveTimer) then
+    FBallMoveTimer.Enabled := false;
+  if Assigned(FBallInRimTimer) then
+    FBallInRimTimer.Enabled := false;
+
+  FCurMoveSprite := nil;
+  FAnimalSprite := nil;
+  FThrowBall := nil;
+  FRim := nil;
+end;
+
+destructor TBasketBallLogic.Destroy;
+begin
+  if Assigned(FMoveToAnimalTimer) then
+    FMoveToAnimalTimer.DisposeOf;
+  if Assigned(FPrepareToThrowTimer) then
+    FPrepareToThrowTimer.DisposeOf;
+  if Assigned(FBallMoveTimer) then
+    FBallMoveTimer.DisposeOf;
+  if Assigned(FBallInRimTimer) then
+    FBallInRimTimer.DisposeOf;
+  inherited;
+end;
+
+procedure TBasketBallLogic.Init;
+begin
+  //todo
+  FFullStarName := FULL_STAR;
+  FHalfStarName := HALF_STAR;
+  FEmptyStarName := EMPTY_STAR;
+
+  ClearAll;
+  ReadScoreFromLocal;
+  ArrangeBasketBall;
+end;
+
+procedure TBasketBallLogic.MouseEnterHandler(Sender: TObject);
+var
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  inherited;
+  if Sender.ClassName.Equals('TEngine2DSprite') then
+    begin
+      LSprite := TEngine2DSprite(Sender);
+      LImage := LSprite.Children.Items[0] as TEngine2DImage;
+      LImage.Opacity := 1;
+    end;
+end;
+
+procedure TBasketBallLogic.MouseLeaveHandler(Sender: TObject);
+var
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  inherited;
+  if Sender.ClassName.Equals('TEngine2DSprite') then
+    begin
+      LSprite := TEngine2DSprite(Sender);
+      LImage := TEngine2DImage(LSprite.Children.Items[0]);
+      LImage.Opacity := 0.8;
+    end;
+end;
+
+procedure TBasketBallLogic.MouseUpHandler(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Single);
+var
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  if Sender.ClassName.Equals('TEngine2DSprite') then
+    begin
+       FAnswerIsOk := TEngine2DSprite(Sender).Name.Equals(FCurAnswer);
+       MoveBallToAnimal(TEngine2DSprite(Sender));
+    end else
+  if Sender.ClassName.Equals('TEngine2DImage') then
+    begin
+      LImage := TEngine2DImage(Sender);
+      ShowMessage(LImage.SpriteName);
+      if LImage.SpriteName.Equals('PlayAgain') then
+        begin
+          LSprite :=FEngineModel.SpriteList.Has('GraySprite');
+          LSprite.Visible := false;
+          LSprite := FEngineModel.SpriteList.Has('ResultSprite');
+          LSprite.Visible := false;
+        end;
+
+    end;
+end;
+
+procedure TBasketBallLogic.MoveBallToAnimal(ASprite: TEngine2DSprite);
+var
+//  LAnimalSprite : TEngine2DSprite;
+  X1,X2, Y1, Y2: Single;
+  LAnimal : TEngine2DImage;
+  LBmp : TBitmap;
+  LFileName : String;
+begin
+  if ASprite = nil then
+    exit;
+  if Not Assigned(FMoveToAnimalTimer) then
+    begin
+      FMoveToAnimalTimer := TTimer.Create(nil);
+      FMoveToAnimalTimer.Interval := MOVE_TO_ANIMAL_INTERVAL;
+      FMoveToAnimalTimer.OnTimer := OnMoveToAnimal;
+      FMoveToAnimalTimer.Enabled := false;
+    end;
+  FAnimalSprite := FEngineModel.SpriteList.Has('animalSprite');
+  FEngineModel.BringToFront(FAnimalSprite);
+  LAnimal := TEngine2DImage(FAnimalSprite.Children.Has('animal'));
+  LFileName := 'touqiu2-1.png';
+  LAnimal.ImageConfig.SetNormalImg(LFileName);
+
+  X1 := ASprite.X + ASprite.Width/2;
+  Y1 := ASprite.Y + ASprite.Height/2;
+  X2 := FAnimalSprite.X + FAnimalSprite.Width/2;
+  Y2 := FAnimalSprite.Y + FAnimalSprite.Height/2;
+
+  FPaceX := (X2 - X1) / MOVE_TO_ANIMAL_STEP_COUNT;
+  FPaceY := (Y2 - Y1) / MOVE_TO_ANIMAL_STEP_COUNT;
+
+  FMoveCount := 0;
+  FCurMoveSprite := ASprite;
+  FMoveToAnimalTimer.Enabled := true;
+end;
+
+procedure TBasketBallLogic.NextSight;
+var
+  LStr : String;
+  LSprite : TEngine2DSprite;
+  LImage : TEngine2DImage;
+begin
+  inc(FCurIndex);
+  if FCurIndex >= TotalCount then
+    begin
+      LSprite :=FEngineModel.SpriteList.Has('GraySprite');
+      LSprite.Visible := true;
+      LSprite := FEngineModel.SpriteList.Has('ResultSprite');
+      LSprite.Visible := true;
+      FEngineModel.BringToFront(LSprite);
+    end else
+    begin
+      ClearAll;
+      LStr := FIndexList.Strings[FCurIndex];
+      FCurConfigName := GetHeadString(LStr,'`');
+      FEngineModel.LoadNextConfig(FCurConfigName);
+      UpdateScore(false);    //加载新场景时 需重绘一下分数
+      ArrangeBasketBall;
+    end;
+
+  inherited;
+end;
+
+procedure TBasketBallLogic.OnBallInRim(Sender: TObject);
+var
+  LFileName : String;
+  LBmp : TBitmap;
+//  LRim : TEngine2DSprite;
+  LRimImage : TEngine2DImage;
+
+begin
+  Inc(FBallInRimCount);
+//  LRim := FEngineModel.SpriteList.Has('rimSprite');
+  LRimImage := TEngine2DImage(FRim.Children.Has('rim'));
+  if FBallInRimCount > 6 then
+    begin
+      FBallInRimCount := 0;
+      FBallInRimTimer.Enabled := false;
+      LFileName := 'lankuang.png';
+      LRimImage.ImageConfig.SetNormalImg(LFileName);
+      PlayAnimation(true);
+      UpdateScore;
+      PlayStarAnimationWhenDone(SHOW_STAR_COUNT);
+      FNextTimer.Enabled := true;
+      exit;
+    end;
+//  FThrowBall := FEngineModel.SpriteList.Has('throwBallSprite');
+  FThrowBall.Visible := false;
+  LFileName := 'touzhong1'+'-'+FBallInRimCount.ToString + '.png';
+  LRimImage.ImageConfig.SetNormalImg(LFileName);
+
+end;
+
+procedure TBasketBallLogic.OnBallMove(Sender: TObject);
+//var
+//  LThrowBall : TEngine2DSprite;
+begin
+  Inc(FMoveBallCount);
+  if FAnswerIsOk then
+    begin
+//      LThrowBall := FEngineModel.SpriteList.Has('throwBallSprite');
+      FThrowBall.X := FThrowBall.X + FPaceX;
+      FThrowBall.Y := FThrowBall.Y + FPaceY;
+    end else
+    begin
+      FThrowBall.X := FThrowBall.X + FMoveBallCount * FPaceX;
+      FThrowBall.Y := FThrowBall.Y + FMoveBallCount * FPaceY;
+    end;
+
+  if FAnswerIsOk then
+    begin
+      if FMoveBallCount >=7 then
+        begin
+          FBallMoveTimer.Enabled := false;
+          FMoveBallCount := 0;
+          BallInRim;
+        end;
+    end else
+    begin
+      if FMoveBallCount >=10 then
+        begin
+          FMoveBallCount := 0;
+          FBallMoveTimer.Enabled := false;
+          PlayAnimation(false);
+          dec(FCurIndex);
+          FNextTimer.Enabled := true;
+        end;
+    end;
+
+end;
+
+procedure TBasketBallLogic.OnMoveToAnimal(Sender: TObject);
+var
+  sx1,sy1 : Single;
+//  LThrowBall : TEngine2DSprite;
+begin
+  inc(FMoveCount);
+  sx1 :=  FCurMoveSprite.X + FCurMoveSprite.Width/2 + FPaceX;
+  FCurMoveSprite.Width := FCurMoveSprite.Width * MOVE_TO_ANIMAL_RATIO;
+  FCurMoveSprite.X := sx1 - FCurMoveSprite.Width/2;
+  sy1 := FCurMoveSprite.Y + FCurMoveSprite.Height/2 + FPaceY;
+  FCurMoveSprite.Height := FCurMoveSprite.Height * MOVE_TO_ANIMAL_RATIO;
+  FCurMoveSprite.Y := sy1 - FCurMoveSprite.Height/2;
+  if FMoveCount >= MOVE_TO_ANIMAL_STEP_COUNT then
+   begin
+     FThrowBall := FEngineModel.SpriteList.Has('throwBallSprite');
+     FThrowBall.Width := FCurMoveSprite.Width;
+     FThrowBall.Height := FCurMoveSprite.Height;
+     FThrowBall.X := FCurMoveSprite.X;
+     FThrowBall.Y := FCurMoveSprite.Y;
+     FThrowBall.Visible := true;
+     FCurMoveSprite.Visible := false;
+     FMoveToAnimalTimer.Enabled := false;
+     FMoveCount := 0;
+     AnimalPrepareToThrow;
+   end;
+
+end;
+
+procedure TBasketBallLogic.OnNextTimer(Sender: TObject);
+begin
+  FNextTimer.Enabled := false;
+  NextSight;
+end;
+
+procedure TBasketBallLogic.OnPrepareToThrow(Sender: TObject);
+var
+  LFileName : String;
+  LBmp : TBitmap;
+//  LAnimalSprite : TEngine2DSprite;
+  LAnimal : TEngine2DImage;
+begin
+  Inc(FAnimalCount);
+
+//  LAnimal := TEngine2DImage(FAnimalSprite.Children.Has('animal'));
+//  LAnimal.ImageConfig.SwitchNormalControlerByName('throw',nil);
+
+  if FAnimalCount = 3 then
+    ThrowBall;
+
+  if FAnimalCount >=6 then
+     FPrepareToThrowTimer.Enabled := false;
+
+end;
+
+procedure TBasketBallLogic.PlayAnimation(AIsRight: boolean);
+var
+  LImage : TEngine2DImage;
+  LFinishProc : TProc;
+  LFileName :String;
+begin
+  LImage := TEngine2DImage(FAnimalSprite.Children.Has('animal'));
+  if AIsRight then
+    begin
+
+      LFinishProc := procedure
+      begin
+        LImage.ImageConfig.SwitchNormalControlerByName('Normal',nil);
+      end;
+//      LImage.ImageIndex := 0;
+      LImage.ImageConfig.SwitchNormalControlerByName('right',LFinishProc);
+    end else
+    begin
+      LFileName := 'shibai-1.png';
+      LImage.ImageConfig.SetNormalImg(LFileName);
+      LImage.ImageConfig.NormalPlayControler := nil;
+    end;
+end;
+
+procedure TBasketBallLogic.ReadScoreFromLocal;
+begin
+  FCurScore := 0;
+  FStarCount := 3;
+  UpdateStarStatus;
+end;
+
+procedure TBasketBallLogic.ThrowBall;
+var
+//  LRim : TEngine2DSprite;
+  LStartX,LStartY,LEndX,LEndY : Single;
+  X1,Y1,X2,Y2 : Single;
+  LRan : Integer;
+begin
+//  LThrowBall := FEngineModel.SpriteList.Has('throwBallSprite');
+  FRim := FEngineModel.SpriteList.Has('rimSprite');
+  FEngineModel.BringToFront(FAnimalSprite);
+  X1 := FThrowBall.X + FThrowBall.Width/2;
+  Y1 := FThrowBall.Y + FThrowBall.Height/2;
+  if FAnswerIsOk then
+    begin
+
+      X2 := FRim.X + FRim.Width/2;
+      Y2 := FRim.Y + FRim.Height/2;
+
+      FPaceX := (X2 - X1) / MOVE_TO_ANIMAL_STEP_COUNT;
+      FPaceY := (Y2 - Y1) / MOVE_TO_ANIMAL_STEP_COUNT;
+    end else
+    begin
+      LRan := Random(2);
+      if LRan = 0 then
+        X2 := FRim.X + FRim.Width + Random(trunc(FRim.Width/4)) else
+        X2 := FRim.X - Random(trunc(FRim.Width/4));
+      Y2 := 0- Random(trunc(FRim.Height/2));
+      FPaceX := (X2 - X1) / 50;
+      FPaceY := (Y2 - Y1) / 50;
+    end;
+
+  if Not Assigned(FBallMoveTimer) then
+    begin
+     FBallMoveTimer := TTimer.Create(nil);
+     FBallMoveTimer.Interval := MOVE_BALL_INTERVAL;
+     FBallMoveTimer.OnTimer := OnBallMove;
+     FBallMoveTimer.Enabled :=  false;
+    end;
+  FMoveBallCount := 0;
+  FBallMoveTimer.Enabled := true;
+//  LThrowBall.CreateMoveAnimation(PointF(LStartX,LStartY),PointF(LEndX,LEndY),nil);
+end;
+
+procedure TBasketBallLogic.UpdateScore(AIsAdd : boolean = true);
+var
+  LSprite : TEngine2DSprite;
+  LText : TEngine2DText;
+begin
+  if AIsAdd then
+    Inc(FCurScore);
+  LSprite := FEngineModel.SpriteList.Has('ScoreSprite');
+  LText := TEngine2DText(LSprite.Children.Has('score'));
+  LText.Text := FCurScore.ToString();
+end;
+
+procedure TBasketBallLogic.UpdateStarStatus;
+var
+  i: Integer;
+begin
+  if Not Assigned(FEngineModel) then
+    raise Exception.Create('FEngineModel is Not Assigned,FEngineModel Should be Used After Engine Create');
+  for i := 1 to SHOW_STAR_COUNT do
+    begin
+      UpdateASingleStarStatus(i);
+    end;
+end;
+
+Initialization
+
+  RegisterLogicUnit(TBasketBallLogic,'BasketballLogic');
+
+end.

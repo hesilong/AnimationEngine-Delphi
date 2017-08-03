@@ -1,0 +1,30 @@
+unit uDDSLogic;
+
+interface
+uses
+  uPublic;
+
+  Type
+    TDDSLogic = class(TLogicWithStar)
+      public
+        procedure Init;override;
+
+        procedure MouseDownHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);override;
+         procedure MouseMoveHandler(Sender: TObject; Shift: TShiftState; X, Y: Single);override;
+         procedure MouseUpHandler(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);override;
+    end;
+
+implementation
+
+{ TDDSLogic }
+
+procedure TDDSLogic.Init;
+begin
+  //todo
+end;
+
+Initialization
+
+  RegisterLogicUnit(TDDSLogic,'DDSLogic');
+
+end.

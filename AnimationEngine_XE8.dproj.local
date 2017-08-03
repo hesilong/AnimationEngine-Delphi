@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2017/07/05 15:16:28.000.044,C:\Users\win7\Documents\Embarcadero\Studio\Projects\Unit1.fmx=D:\Delphi Relative\SVNProjects\AnimationLesson\AnimationEnigne\AniMain.fmx</Transaction>
+    <Transaction>2017/07/05 15:16:57.000.426,C:\Users\win7\Documents\Embarcadero\Studio\Projects\Project1.dproj=D:\Delphi Relative\SVNProjects\AnimationLesson\AnimationEnigne\AnimationEngine_XE8.dproj</Transaction>
+  </Transactions>
+	<ActiveMobileDevice>
+		<NoProfile iOSSimulator="iPhone5" Android="E7N6R14B03000642"/>
+	</ActiveMobileDevice>
+	<ProjectSortOrder AutoSort="0" SortType="0">
+    <File Path="android-support-v4.dex.jar"/>
+    <File Path="apk-expansion.dex.jar"/>
+    <File Path="cloud-messaging.dex.jar"/>
+    <File Path="fmx.dex.jar"/>
+    <File Path="google-analytics-v2.dex.jar"/>
+    <File Path="google-play-billing.dex.jar"/>
+    <File Path="google-play-licensing.dex.jar"/>
+    <File Path="google-play-services.dex.jar"/>
+    <File Path="Logic"/>
+    <File Path="Logic\uBasketBallLogic.pas"/>
+    <File Path="Logic\uPublic.pas"/>
+    <File Path="Logic\uSTXLogic.pas"/>
+    <File Path="Logic\uZYZLogic.pas"/>
+    <File Path="Logic\uDDSLogic.pas"/>
+    <File Path="AniMain.pas"/>
+    <File Path="AniMain.fmx"/>
+    <File Path="uConfiguration.pas"/>
+    <File Path="uEngine.pas"/>
+    <File Path="uEngine2DClasses.pas"/>
+    <File Path="uEngine2DExtend.pas"/>
+    <File Path="uEngine2DModel.pas"/>
+    <File Path="uEngine2DObject.pas"/>
+    <File Path="uEngine2DSprite.pas"/>
+    <File Path="uEngineConfig.pas"/>
+    <File Path="uEngineResource.pas"/>
+    <File Path="uEngineUtils.pas"/>
+    <File Path="uGeometryClasses.pas"/>
+  </ProjectSortOrder>
+</BorlandProject>
