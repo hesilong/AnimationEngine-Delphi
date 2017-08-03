@@ -11,18 +11,6 @@ uses
 {TEngine2DSprite 类负责动画逻辑的解析，动画资源的加载，动画内容的管理}
 Type
   TEngine2DSprite = class
-    private
-      ScriptE : TScript;
-      FMouseEnterScript : String;
-      FMouseLeaveScript : String;
-      FMouseUpScript : String;
-      FMouseMoveScript : String;
-      FMouseDownScript : String;
-
-      function DefineFunction(inStr : String) : Boolean;
-      function DefineVar(inStr : String) : Boolean;
-      function OutCall(str1,str2 : string) : String;
-      procedure FeedValue(inStr : string; Var outStr : String; Var oType : Byte);
 
     private
       FImage : TBitmap;
@@ -120,71 +108,6 @@ implementation
 uses
   uPublic;
 
-
-function TEngine2DSprite.DefineFunction(inStr : String) : Boolean;
- begin
-  //if inStr = 'self.x' then
-  result := false;
-  inStr := trim(inStr);
-  if inStr <> '' then
-   result := True;
- end;
-
-function TEngine2DSprite.DefineVar(inStr : String) : Boolean;
- begin
-  //
- end;
-
-function TEngine2DSprite.OutCall(str1,str2 : string) : String;
- Var
-  r : Single;
-  name1 : string;
- begin
-  if str1 = '@self.SETX' then
-   begin
-    r := StrToFloat(GetHeadString(Str2,','));
-    FPosition.X := r;
-   end else
-  if str1 = '@self.SETY' then
-   begin
-    r := StrToFloat(GetHeadString(Str2,','));
-    FPosition.Y := r;
-   end else
-  if str1 = '@self.SETOPA' then
-   begin
-    name1 := GetHeadString(Str2,',');
-    while Pos('"',name1) <> 0 do
-     delete(name1,Pos('"',name1),1);
-
-    r := StrToFloat(GetHeadString(Str2,','));
-    self.Children.Has(name1).Opacity := r;
-   end;
- end;
-
-procedure TEngine2DSprite.FeedValue(inStr : string; Var outStr : String; Var oType : Byte);
- Var
-  tmpS : String;
- begin
-  if inStr = 'self.x' then
-   begin
-    OutStr := floatToStr(x);
-    oType := 3;
-   end else
-  if inStr = 'self.y' then
-   begin
-    OutStr := floatToStr(y);
-    oType := 3;
-   end else
-  if Pos('self.opa.',inStr) = 1 then
-   begin
-    GetHeadString(inStr,'.');
-    GetHeadString(inStr,'.');
-    tmpS := trim(inStr);
-    OutStr := floatToStr(self.Children.Has(tmpS).Opacity);
-    //OutStr := floatToStr(x);
-    oType := 3;
-   end;
- end;
 { TEngine2DSprite }
 
 constructor TEngine2DSprite.Create(AImage: TBitmap);
@@ -331,12 +254,6 @@ begin
   begin
     Self.FSpriteName := tmpValue.Value;
   end;
-
-  if self.FSpriteName = 'Q1Sprite' then
-   begin
-    FMouseEnterScript := ss;
-    FMouseLeaveScript := ss1;
-   end;
 
   tmpValue := inJObject.Values['Width'] ;
   if tmpValue <> nil then
@@ -527,21 +444,9 @@ begin
       if FIsMouseEnter then
         begin
           FIsMouseEnter  := false;
-          if FMouseLeaveScript <> '' then
-           begin
-            ScriptE := TScript.create;
-            ScriptE.On_isFunction := DefineFunction;
-            ScriptE.OnFunctionCall := OutCall;
-            ScriptE.On_isVar := DefineVar;
-            ScriptE.OnOutSideVar := feedValue;
-            ScriptE.setfeedIn(FMouseLeaveScript);
-            ScriptE.compile_2;
-            ScriptE.Run;
-            ScriptE.DisposeOf;
-           end;
-          {
+
           if Assigned(FOnMouseLeave) then
-            FOnMouseLeave(Self); }
+            FOnMouseLeave(Self);
         end;
       exit;
     end;
@@ -562,39 +467,12 @@ begin
     if Not FIsMouseEnter then
       begin
         FIsMouseEnter := true;
-         if FMouseEnterScript <> '' then
-           begin
-            ScriptE := TScript.create;
-            ScriptE.On_isFunction := DefineFunction;
-            ScriptE.OnFunctionCall := OutCall;
-            ScriptE.On_isVar := DefineVar;
-            ScriptE.OnOutSideVar := feedValue;
-            ScriptE.setfeedIn(FMouseEnterScript);
-            ScriptE.compile_2;
-            ScriptE.Run;
-            ScriptE.DisposeOf;
-           end;
-        {
         if Assigned(FOnMouseEnter) then
           FOnMouseEnter(Self);
-          }
       end;
     if Assigned(FOnMouseMove) then
      begin
-         if FMouseMoveScript <> '' then
-           begin
-            ScriptE := TScript.create;
-            ScriptE.On_isFunction := DefineFunction;
-            ScriptE.OnFunctionCall := OutCall;
-            ScriptE.On_isVar := DefineVar;
-            ScriptE.OnOutSideVar := feedValue;
-            ScriptE.setfeedIn(FMouseMoveScript);
-            ScriptE.compile_2;
-            ScriptE.Run;
-            ScriptE.DisposeOf;
-           end;
-      {
-      FOnMouseMove(Self,Shift,InX,InY); }
+      FOnMouseMove(Self,Shift,InX,InY);
      end;
     result := true;
   end;

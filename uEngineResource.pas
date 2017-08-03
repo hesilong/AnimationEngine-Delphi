@@ -1,7 +1,7 @@
 unit uEngineResource;
 {$ZEROBASEDSTRINGS OFF}
 
-{$DEFINE FORTEST}
+{.$DEFINE FORTEST}
 // ***************************************
 //  管理所有的资源文件(所有的图片资源，JSON文档信息)
 //  任何一个Sprite都可以调用这个Unit来获取图片资源....

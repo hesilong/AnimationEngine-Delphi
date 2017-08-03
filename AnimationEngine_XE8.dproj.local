@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<Transactions>
-    <Transaction>2017/07/05 15:16:28.000.044,C:\Users\win7\Documents\Embarcadero\Studio\Projects\Unit1.fmx=D:\Delphi Relative\SVNProjects\AnimationLesson\AnimationEnigne\AniMain.fmx</Transaction>
-    <Transaction>2017/07/05 15:16:57.000.426,C:\Users\win7\Documents\Embarcadero\Studio\Projects\Project1.dproj=D:\Delphi Relative\SVNProjects\AnimationLesson\AnimationEnigne\AnimationEngine_XE8.dproj</Transaction>
+    <Transaction>2017/07/05 15:16:28.000.044,D:\Delphi Relative\SVNProjects\AnimationLesson\AnimationEnigne\AniMain.fmx=C:\Users\win7\Documents\Embarcadero\Studio\Projects\Unit1.fmx</Transaction>
+    <Transaction>2017/07/05 15:16:57.000.426,D:\Delphi Relative\SVNProjects\AnimationLesson\AnimationEnigne\AnimationEngine_XE8.dproj=C:\Users\win7\Documents\Embarcadero\Studio\Projects\Project1.dproj</Transaction>
   </Transactions>
 	<ActiveMobileDevice>
 		<NoProfile iOSSimulator="iPhone5" Android="E7N6R14B03000642"/>

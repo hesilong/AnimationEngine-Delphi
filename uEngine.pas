@@ -11,13 +11,6 @@ uses
 {TEngine2D类负责场景内容的重绘，统一管理各模块}
 Type
   TEngine2D = class(TShape)
-    private
-      ScriptE : TScript;
-      FMouseEnterScript : String;
-      FMouseLeaveScript : String;
-      FMouseUpScript : String;
-      FMouseMoveScript : String;
-      FMouseDownScript : String;
 
     private
       FEngineTimer : TTimer;

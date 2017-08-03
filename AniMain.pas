@@ -1,7 +1,7 @@
 unit AniMain;
 {$ZEROBASEDSTRINGS OFF}
 
-{$DEFINE FORTEST}
+{.$DEFINE FORTEST}
 interface
 
 uses
